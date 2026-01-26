@@ -458,7 +458,7 @@
           const vals = lines[i].split(',').map(v => v.trim().replace(/"/g, ''));
           if (vals.length !== expectedHeader.length) continue;
 
-          let id = Number(vals[0]); // Fixed: Number handles scientific notation like 1.76E+12
+          let id = Number(vals[0]); // Handles large numbers
           if (isNaN(id) || id <= 0) {
             id = ++maxImportedId;
           } else if (id > maxImportedId) {
@@ -479,7 +479,7 @@
           importedRecords.push(rec);
         }
 
-        // Single bulk operation: read once, merge all, write once
+        // Single bulk merge + write
         let records = readLocalRecords();
         importedRecords.forEach(newRec => {
           const idx = records.findIndex(r => r.id === newRec.id);
