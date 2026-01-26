@@ -1,0 +1,62 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Unregister SW (safe)</title>
+</head>
+<body style="font-family:system-ui,Segoe UI,Arial;padding:18px">
+  <h3>Unregister service workers and clear caches</h3>
+  <p>This will try to unregister any service workers for this origin and delete caches used by them.</p>
+  <button id="u">Unregister all SWs</button>
+  <pre id="out" style="white-space:pre-wrap;margin-top:12px"></pre>
+
+<script>
+async function log(msg){ const p = document.getElementById('out'); p.textContent += msg + '\\n'; }
+
+document.getElementById('u').addEventListener('click', async () => {
+  try {
+    if (!('serviceWorker' in navigator)) {
+      await log('navigator.serviceWorker is not supported or unavailable in this context.');
+      await log('Try clearing site data in Chrome settings (Site settings → All sites → Clear & reset).');
+      return;
+    }
+
+    // Unregister all registrations
+    const regs = await navigator.serviceWorker.getRegistrations();
+    if (!regs || regs.length === 0) {
+      await log('No service worker registrations found for this origin.');
+    } else {
+      await log('Found ' + regs.length + ' registration(s). Unregistering...');
+      for (const r of regs) {
+        try {
+          const ok = await r.unregister();
+          await log('Unregister result for scope ' + (r.scope || '') + ' : ' + ok);
+        } catch(e) {
+          await log('Error unregistering scope ' + (r.scope||'') + ' : ' + e);
+        }
+      }
+    }
+
+    // Delete all caches
+    if ('caches' in window) {
+      const keys = await caches.keys();
+      if (keys.length === 0) {
+        await log('No caches found.');
+      } else {
+        await log('Deleting caches: ' + keys.join(', '));
+        for (const k of keys) {
+          try { await caches.delete(k); await log('Deleted cache: ' + k); } catch(e){ await log('Failed delete ' + k + ' : ' + e); }
+        }
+      }
+    } else {
+      await log('Cache API not available in this context.');
+    }
+
+    await log('Done. Now reload the app page: /index.html?fresh');
+  } catch (err) {
+    await log('Unexpected error: ' + err);
+  }
+});
+</script>
+</body>
+</html>
