@@ -81,13 +81,15 @@
     }
 
     input,
-    select {
-      width: 100%;
-      padding: 9px;
-      border: 1px solid #e6e9ef;
-      border-radius: 8px;
-      box-sizing: border-box;
-      font-size: 14px;
+    select,
+    button {
+      font-size: 16px; /* Slightly larger for mobile */
+    }
+
+    #paid {
+      width: 24px;
+      height: 24px;
+      accent-color: var(--accent);
     }
 
     .buttons {
@@ -180,12 +182,6 @@
       font-size: 16px;
     }
 
-    #paid {
-      width: 20px;
-      height: 20px;
-      accent-color: var(--accent);
-    }
-
     footer {
       margin-top: 14px;
       text-align: center;
@@ -221,7 +217,6 @@
       display: none;
     }
   </style>
-
 </head>
 <body>
   <div id="swDebug" aria-hidden="true">SW status: initializing…</div>
@@ -252,7 +247,7 @@
           <!-- Paid checkbox - visible only in edit mode -->
           <div id="paidCheckbox" style="display:none; margin-top:12px;">
             <input type="checkbox" id="paid" />
-            <label for="paid" style="font-size:16px;">Paid</label>
+            <label for="paid" style="font-size:18px;">Paid</label>
           </div>
         </div>
       </div>
