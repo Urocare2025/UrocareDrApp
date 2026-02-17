@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Patient Records — cross-device version</title>
+  <style>
+    :root { --bg: #f8fafc; --card: #ffffff; --accent: #2563eb; --danger: #dc2626; }
+    body { font-family: system-ui, sans-serif; margin: 20px; background: var(--bg); color: #1e293b; }
+    .wrap { max-width: 1150px; margin: 0 auto; }
+    .card { background: var(--card); border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); margin-bottom: 20px; border: 1px solid #e2e8f0; }
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+    input, select { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; font-size: 14px; }
+    label { display: block; font-size: 12px; font-weight: bold; margin-bottom: 4px; color: #64748b; }
+    .btn-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 15px; }
+    button { padding: 10px 16px; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; color: white; background: var(--accent); }
+    button.sec { background: #64748b; }
+    button.paid-btn { background: #059669; }
+    button.del-btn { background: var(--danger); }
+    .table-container { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; min-width: 1000px; }
+    th, td { padding: 10px; text-align: left; border-bottom: 1px solid #e2e8f0; font-size: 13px; }
+    th { background: #f1f5f9; color: #475569; position: sticky; top: 0; }
+    .row-paid { background-color: #fee2e2 !important; }
+    .status-no { color: #dc2626; font-weight: bold; }
+    .status-yes { color: #059669; font-weight: bold; }
+    #editPaidArea { display:none; grid-column: 1 / -1; background: #f1f5f9; padding: 10px; border-radius: 6px; }
+  </style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="card">
+    <div class="form-grid" id="entry-form">
+      <div><label>Date</label><input type="date" id="f_date"></div>
+      <div><label>Patient Name</label><input type="text" id="f_name"></div>
+      <div><label>Hospital</label><input type="text" id="f_hosp"></div>
+      <div><label>Type</label><select id="f_type"><option value="OPD">OPD</option><option value="IPD">IPD</option><option value="Operation">Operation</option></select></div>
+      <div><label>Procedure</label><input type="text" id="f_proc"></div>
+      <div><label>Fees</label><input type="number" id="f_fees"></div>
+      <div><label>Other Expenses</label><input type="number" id="f_exp"></div>
+      <div><label>Other Payee</label><input type="text" id="f_payee"></div>
+      <div id="editPaidArea">
+        <input type="checkbox" id="f_paid" style="width:auto;"> <label style="display:inline" for="f_paid">Mark as Paid</label>
+      </div>
+    </div>
+    
+    <div class="btn-row">
+      <button onclick="saveRecord()" id="main-btn">Save Record</button>
+      <button class="sec" onclick="exportToCSV()">Export CSV (for Excel)</button>
+      <button class="sec" onclick="document.getElementById('csv_file').click()">Import File</button>
+      <input type="file" id="csv_file" style="display:none" onchange="importFromCSV(event)">
+      <button class="sec" onclick="clearData()">Clear All</button>
+      <button class="sec" id="cancel-btn" style="display:none" onclick="resetUI()">Cancel Edit</button>
+    </div>
+  </div>
+
+  <div class="card table-container">
+    <table id="dataTable">
+      <thead>
+        <tr>
+          <th>ID</th><th>Date</th><th>Patient</th><th>Hospital</th><th>Type</th><th>Procedure</th><th>Fees</th><th>Other Expenses</th><th>Other Payee</th><th>Paid?</th><th>Actions</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  let data = JSON.parse(localStorage.getItem('patient_records_v1') || '[]');
+  let editId = null;
+
+  function render() {
+    const tbody = document.querySelector('#dataTable tbody');
+    tbody.innerHTML = '';
+    data.forEach(item => {
+      const tr = document.createElement('tr');
+      const isPaid = (item.paid === "Yes" || item.paid === true); 
+      if (isPaid) tr.className = 'row-paid';
+      
+      tr.innerHTML = `
+        <td>${item.id}</td>
+        <td>${item.date || ''}</td>
+        <td>${item.name || ''}</td>
+        <td>${item.hosp || ''}</td>
+        <td>${item.type || ''}</td>
+        <td>${item.proc || ''}</td>
+        <td>${item.fees || 0}</td>
+        <td>${item.exp || 0}</td>
+        <td>${item.payee || ''}</td>
+        <td class="${isPaid ? 'status-yes' : 'status-no'}">${isPaid ? 'YES' : 'No'}</td>
+        <td>
+          <button class="sec" style="padding:4px 8px" onclick="loadEdit('${item.id}')">Edit</button>
+          ${!isPaid ? `<button class="paid-btn" style="padding:4px 8px" onclick="quickPaid('${item.id}')">Paid</button>` : ''}
+          <button class="del-btn" style="padding:4px 8px" onclick="deleteRecord('${item.id}')">X</button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+    localStorage.setItem('patient_records_v1', JSON.stringify(data));
+  }
+
+  function saveRecord() {
+    const name = document.getElementById('f_name').value.trim();
+    if(!name) return alert("Enter patient name");
+    const record = {
+      id: editId || String(Date.now()),
+      date: document.getElementById('f_date').value,
+      name: name,
+      hosp: document.getElementById('f_hosp').value,
+      type: document.getElementById('f_type').value,
+      proc: document.getElementById('f_proc').value,
+      fees: document.getElementById('f_fees').value || 0,
+      exp: document.getElementById('f_exp').value || 0,
+      payee: document.getElementById('f_payee').value,
+      paid: editId ? (document.getElementById('f_paid').checked ? "Yes" : "No") : "No"
+    };
+    if(editId) {
+      const idx = data.findIndex(x => String(x.id) === String(editId));
+      data[idx] = record;
+    } else {
+      data.push(record);
+    }
+    resetUI();
+    render();
+  }
+
+  function quickPaid(id) {
+    const idx = data.findIndex(x => String(x.id) === String(id));
+    if(idx !== -1) { data[idx].paid = "Yes"; render(); }
+  }
+
+  function loadEdit(id) {
+    editId = String(id);
+    const item = data.find(x => String(x.id) === editId);
+    if(!item) return;
+    document.getElementById('f_date').value = item.date;
+    document.getElementById('f_name').value = item.name;
+    document.getElementById('f_hosp').value = item.hosp;
+    document.getElementById('f_type').value = item.type;
+    document.getElementById('f_proc').value = item.proc;
+    document.getElementById('f_fees').value = item.fees;
+    document.getElementById('f_exp').value = item.exp;
+    document.getElementById('f_payee').value = item.payee;
+    document.getElementById('f_paid').checked = (item.paid === "Yes");
+    document.getElementById('editPaidArea').style.display = 'block';
+    document.getElementById('cancel-btn').style.display = 'inline-block';
+    document.getElementById('main-btn').innerText = "Update Record";
+  }
+
+  function deleteRecord(id) {
+    if(confirm("Delete record?")) {
+      data = data.filter(x => String(x.id) !== String(id));
+      render();
+    }
+  }
+
+  function resetUI() {
+    editId = null;
+    ['f_date','f_name','f_hosp','f_proc','f_fees','f_exp','f_payee'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('editPaidArea').style.display = 'none';
+    document.getElementById('cancel-btn').style.display = 'none';
+    document.getElementById('main-btn').innerText = "Save Record";
+  }
+
+  function exportToCSV() {
+    const headers = ["id", "date", "patient_name", "hospital", "type", "procedure_name", "fees", "other_expenses", "other_payee", "paid"];
+    let csv = headers.join(",") + "\n";
+    data.forEach(item => {
+      const row = [item.id, item.date, `"${item.name}"`, `"${item.hosp}"`, item.type, `"${item.proc}"`, item.fees, item.exp, `"${item.payee}"`, (item.paid === "Yes" || item.paid === true) ? "Yes" : "No"];
+      csv += row.join(",") + "\n";
+    });
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `patient_export_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+  }
+
+  function importFromCSV(e) {
+    const reader = new FileReader();
+    reader.onload = function() {
+      const lines = reader.result.split('\n').filter(l => l.trim().length > 0);
+      const imported = [];
+      // Ignore whatever the header is, just map columns by order
+      for(let i=1; i<lines.length; i++) {
+        const c = lines[i].split(',').map(v => v.replace(/"/g,'').trim());
+        if(c.length < 9) continue;
+        imported.push({
+          id: c[0] || "IMP-" + Date.now() + i,
+          date: c[1], name: c[2], hosp: c[3], type: c[4], proc: c[5], fees: c[6], exp: c[7], payee: c[8],
+          paid: (c[9] === "Yes" || c[9] === "true") ? "Yes" : "No"
+        });
+      }
+      data = imported;
+      render();
+      alert("Imported successfully.");
+    };
+    reader.readAsText(e.target.files[0]);
+  }
+
+  function clearData() { if(confirm("Clear all?")) { data = []; render(); } }
+  render();
+</script>
+</body>
+</html>
