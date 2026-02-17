@@ -3,50 +3,66 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Patient Records — Final Fix</title>
+  <title>Patient Records — Full Version</title>
   <style>
     :root { --bg: #f8fafc; --card: #ffffff; --accent: #2563eb; --danger: #dc2626; }
     body { font-family: system-ui, sans-serif; margin: 20px; background: var(--bg); color: #1e293b; }
-    .wrap { max-width: 1000px; margin: 0 auto; }
+    .wrap { max-width: 1100px; margin: 0 auto; }
     .card { background: var(--card); border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); margin-bottom: 20px; border: 1px solid #e2e8f0; }
-    input, select { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; margin-bottom: 10px; font-size: 14px; }
-    .btn-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+    
+    /* Form Layout */
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+    input, select { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; font-size: 14px; }
+    label { display: block; font-size: 12px; font-weight: bold; margin-bottom: 4px; color: #64748b; }
+
+    .btn-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 15px; }
     button { padding: 10px 16px; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; color: white; background: var(--accent); }
     button.sec { background: #64748b; }
     button.paid-btn { background: #059669; }
     button.del-btn { background: var(--danger); }
-    table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; }
-    th, td { padding: 12px; text-align: left; border-bottom: 1px solid #e2e8f0; font-size: 14px; }
-    th { background: #f1f5f9; color: #475569; }
-    .row-paid { background-color: #fee2e2 !important; } /* Pink highlight */
+    
+    /* Table Styling */
+    .table-container { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; min-width: 900px; }
+    th, td { padding: 10px; text-align: left; border-bottom: 1px solid #e2e8f0; font-size: 13px; }
+    th { background: #f1f5f9; color: #475569; position: sticky; top: 0; }
+    
+    .row-paid { background-color: #fee2e2 !important; } /* Pink for Paid */
     .status-no { color: #dc2626; font-weight: bold; }
     .status-yes { color: #059669; font-weight: bold; }
+    
+    #editPaidArea { display:none; grid-column: 1 / -1; background: #f1f5f9; padding: 10px; border-radius: 6px; }
   </style>
 </head>
 <body>
 
 <div class="wrap">
   <div class="card">
-    <div id="entry-form">
-      <input type="date" id="f_date">
-      <input type="text" id="f_name" placeholder="Patient Name">
-      <input type="text" id="f_hosp" placeholder="Hospital">
-      <select id="f_type">
-        <option value="OPD">OPD</option>
-        <option value="IPD">IPD</option>
-        <option value="Surgery">Surgery</option>
-      </select>
-      <input type="number" id="f_fees" placeholder="Fees Amount">
-      <input type="number" id="f_exp" placeholder="Expenses">
+    <div class="form-grid" id="entry-form">
+      <div><label>Date</label><input type="date" id="f_date"></div>
+      <div><label>Patient Name</label><input type="text" id="f_name"></div>
+      <div><label>Hospital</label><input type="text" id="f_hosp"></div>
+      <div>
+        <label>Type</label>
+        <select id="f_type">
+          <option value="OPD">OPD</option>
+          <option value="IPD">IPD</option>
+          <option value="Operation">Operation</option>
+        </select>
+      </div>
+      <div><label>Procedure</label><input type="text" id="f_proc"></div>
+      <div><label>Fees</label><input type="number" id="f_fees"></div>
+      <div><label>Other Expenses</label><input type="number" id="f_exp"></div>
+      <div><label>Other Payee</label><input type="text" id="f_payee"></div>
       
-      <div id="edit-options" style="display:none; padding:10px; background:#f1f5f9; border-radius:6px; margin-bottom:10px;">
-        <input type="checkbox" id="f_paid" style="width:auto;"> <label for="f_paid"><b>Payment Received?</b></label>
+      <div id="editPaidArea">
+        <input type="checkbox" id="f_paid" style="width:auto;"> <label style="display:inline" for="f_paid">Mark as Paid (Received)</label>
       </div>
     </div>
     
     <div class="btn-row">
       <button onclick="saveRecord()" id="main-btn">Save Record</button>
-      <button class="sec" onclick="exportToCSV()">Export to CSV</button>
+      <button class="sec" onclick="exportToCSV()">Export CSV</button>
       <button class="sec" onclick="document.getElementById('csv_file').click()">Import CSV</button>
       <input type="file" id="csv_file" style="display:none" accept=".csv" onchange="importFromCSV(event)">
       <button class="sec" onclick="clearData()">Clear All</button>
@@ -54,11 +70,11 @@
     </div>
   </div>
 
-  <div class="card" style="overflow-x:auto;">
+  <div class="card table-container">
     <table id="dataTable">
       <thead>
         <tr>
-          <th>Date</th><th>Patient</th><th>Hospital</th><th>Type</th><th>Fees</th><th>Paid?</th><th>Actions</th>
+          <th>ID</th><th>Date</th><th>Patient</th><th>Hospital</th><th>Type</th><th>Procedure</th><th>Fees</th><th>Other Expenses</th><th>Other Payee</th><th>Paid?</th><th>Actions</th>
         </tr>
       </thead>
       <tbody></tbody>
@@ -67,7 +83,7 @@
 </div>
 
 <script>
-  let data = JSON.parse(localStorage.getItem('patient_data_v2') || '[]');
+  let data = JSON.parse(localStorage.getItem('patient_records_v1') || '[]');
   let editId = null;
 
   function render() {
@@ -76,27 +92,31 @@
     
     data.forEach(item => {
       const tr = document.createElement('tr');
-      // item.paid must be exactly 1 to show as paid
-      const isPaid = (item.paid === 1); 
+      // Fix: Handle both Boolean and "Yes" strings from various versions
+      const isPaid = (item.paid === true || item.paid === 1 || item.paid === "Yes"); 
       
       if (isPaid) tr.className = 'row-paid';
       
       tr.innerHTML = `
-        <td>${item.date}</td>
-        <td>${item.name}</td>
-        <td>${item.hosp}</td>
-        <td>${item.type}</td>
-        <td>${item.fees}</td>
+        <td>${item.id}</td>
+        <td>${item.date || ''}</td>
+        <td>${item.name || ''}</td>
+        <td>${item.hosp || ''}</td>
+        <td>${item.type || ''}</td>
+        <td>${item.proc || ''}</td>
+        <td>${item.fees || 0}</td>
+        <td>${item.exp || 0}</td>
+        <td>${item.payee || ''}</td>
         <td class="${isPaid ? 'status-yes' : 'status-no'}">${isPaid ? 'YES' : 'No'}</td>
         <td>
           <button class="sec" style="padding:4px 8px" onclick="loadEdit(${item.id})">Edit</button>
-          ${!isPaid ? `<button class="paid-btn" style="padding:4px 8px" onclick="quickPaid(${item.id})">Mark Paid</button>` : ''}
+          ${!isPaid ? `<button class="paid-btn" style="padding:4px 8px" onclick="quickPaid(${item.id})">Paid</button>` : ''}
           <button class="del-btn" style="padding:4px 8px" onclick="deleteRecord(${item.id})">X</button>
         </td>
       `;
       tbody.appendChild(tr);
     });
-    localStorage.setItem('patient_data_v2', JSON.stringify(data));
+    localStorage.setItem('patient_records_v1', JSON.stringify(data));
   }
 
   function saveRecord() {
@@ -109,10 +129,11 @@
       name: name,
       hosp: document.getElementById('f_hosp').value,
       type: document.getElementById('f_type').value,
+      proc: document.getElementById('f_proc').value,
       fees: document.getElementById('f_fees').value || 0,
       exp: document.getElementById('f_exp').value || 0,
-      // If editing, use checkbox. If new, always 0 (No).
-      paid: editId ? (document.getElementById('f_paid').checked ? 1 : 0) : 0
+      payee: document.getElementById('f_payee').value,
+      paid: editId ? (document.getElementById('f_paid').checked ? "Yes" : "No") : "No"
     };
 
     if(editId) {
@@ -128,7 +149,7 @@
 
   function quickPaid(id) {
     const idx = data.findIndex(x => x.id === id);
-    data[idx].paid = 1;
+    data[idx].paid = "Yes";
     render();
   }
 
@@ -139,22 +160,21 @@
     document.getElementById('f_name').value = item.name;
     document.getElementById('f_hosp').value = item.hosp;
     document.getElementById('f_type').value = item.type;
+    document.getElementById('f_proc').value = item.proc;
     document.getElementById('f_fees').value = item.fees;
     document.getElementById('f_exp').value = item.exp;
-    document.getElementById('f_paid').checked = (item.paid === 1);
+    document.getElementById('f_payee').value = item.payee;
+    document.getElementById('f_paid').checked = (item.paid === "Yes" || item.paid === true);
     
-    document.getElementById('edit-options').style.display = 'block';
+    document.getElementById('editPaidArea').style.display = 'block';
     document.getElementById('cancel-btn').style.display = 'inline-block';
     document.getElementById('main-btn').innerText = "Update Record";
   }
 
   function resetUI() {
     editId = null;
-    document.getElementById('f_name').value = '';
-    document.getElementById('f_hosp').value = '';
-    document.getElementById('f_fees').value = '';
-    document.getElementById('f_exp').value = '';
-    document.getElementById('edit-options').style.display = 'none';
+    ['f_date','f_name','f_hosp','f_proc','f_fees','f_exp','f_payee'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('editPaidArea').style.display = 'none';
     document.getElementById('cancel-btn').style.display = 'none';
     document.getElementById('main-btn').innerText = "Save Record";
   }
@@ -167,20 +187,30 @@
   }
 
   function exportToCSV() {
-    if(data.length === 0) return alert("No records");
+    const headers = ["id", "date", "patient_name", "hospital", "type", "procedure_name", "fees", "other_expenses", "other_payee", "paid"];
+    let csv = headers.join(",") + "\n";
     
-    let csv = "Date,Patient,Hospital,Type,Fees,Expenses,Paid\n";
     data.forEach(item => {
-      // FORCE "Yes" or "No" based on the number 1 or 0
-      const paidStatus = (item.paid === 1) ? "Yes" : "No";
-      csv += `${item.date},"${item.name}","${item.hosp}",${item.type},${item.fees},${item.exp},${paidStatus}\n`;
+      const row = [
+        item.id,
+        item.date,
+        `"${item.name}"`,
+        `"${item.hosp}"`,
+        item.type,
+        `"${item.proc}"`,
+        item.fees,
+        item.exp,
+        `"${item.payee}"`,
+        (item.paid === "Yes" || item.paid === true) ? "Yes" : "No"
+      ];
+      csv += row.join(",") + "\n";
     });
 
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `Patient_Report_${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `patient_export_${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
   }
 
@@ -190,23 +220,26 @@
       const lines = reader.result.split('\n');
       const imported = [];
       for(let i=1; i<lines.length; i++) {
-        const c = lines[i].split(',');
-        if(c.length < 6) continue;
+        const c = lines[i].split(',').map(v => v.replace(/"/g,'').trim());
+        if(c.length < 9) continue;
+        
         imported.push({
-          id: Date.now() + i,
-          date: c[0],
-          name: c[1].replace(/"/g,''),
-          hosp: c[2].replace(/"/g,''),
-          type: c[3],
-          fees: c[4],
-          exp: c[5],
-          // Import logic: if it says "Yes", it's 1. Otherwise 0.
-          paid: (c[6] && c[6].trim().toLowerCase() === 'yes') ? 1 : 0
+          id: c[0] || Date.now() + i,
+          date: c[1],
+          name: c[2],
+          hosp: c[3],
+          type: c[4],
+          proc: c[5],
+          fees: c[6],
+          exp: c[7],
+          payee: c[8],
+          // Important: Checks if the CSV literally says "Yes"
+          paid: (c[9] === "Yes" || c[9] === "true") ? "Yes" : "No"
         });
       }
       data = imported;
       render();
-      alert("Imported!");
+      alert("Imported successfully. Records marked 'Yes' in CSV are now pink.");
     };
     reader.readAsText(e.target.files[0]);
   }
