@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Patient Records — Surgeon's Version</title>
+  <link rel="manifest" href="./manifest.json" />
+  <style>
+    :root { --bg: #f6f8fb; --card: #ffffff; --accent: #0b63ff; --danger: #ef4444; --radius: 12px; }
+    body { font-family: system-ui, -apple-system, sans-serif; margin: 15px; background: var(--bg); color: #111; }
+    .wrap { max-width: 980px; margin: 0 auto; }
+    .card { background: var(--card); border-radius: var(--radius); padding: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 12px; }
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+    label { display: block; font-weight: 600; margin-bottom: 4px; font-size: 13px; }
+    input, select { width: 100%; padding: 10px; border: 1px solid #e6e9ef; border-radius: 8px; box-sizing: border-box; font-size: 14px; margin-bottom: 8px; }
+    .buttons { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+    button { background: var(--accent); color: white; padding: 10px 14px; border-radius: 10px; border: 0; font-weight: 600; cursor: pointer; }
+    button.secondary { background: #e2e8f0; color: #475569; }
+    button.danger { background: var(--danger); }
+    button.paid-btn { background: #dc2626; }
+    tr.paid-row { background-color: #fee2e2 !important; }
+    table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 13px; }
+    th, td { padding: 10px; border-bottom: 1px solid #eef2f6; text-align: left; }
+    th { color: #666; background: #f8fafc; }
+    #importInput { display: none; }
+    #paidArea { display: none; align-items: center; gap: 8px; padding: 10px; background: #f0f7ff; border-radius: 8px; grid-column: 1 / -1; }
+    #pwaInstallBtn { position: fixed; right: 18px; bottom: 18px; padding: 10px; border-radius: 10px; background: #0b63ff; color: #fff; border: none; z-index: 9999; }
+    #forceSwBtn { position: fixed; left: 12px; bottom: 18px; padding: 8px; border-radius: 8px; background: #222; color: #fff; border: 0; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="form-grid">
+        <div><label>Date</label><input id="date" type="date" /></div>
+        <div><label>Patient Name</label><input id="patient_name" placeholder="Name" /></div>
+        <div><label>Hospital</label><input id="hospital" placeholder="Hospital" /></div>
+        <div><label>Type</label><select id="type"><option value="OPD">OPD</option><option value="IPD">IPD</option><option value="Operation">Operation</option></select></div>
+        <div><label>Procedure Name</label><input id="procedure_name" placeholder="Procedure" /></div>
+        <div><label>Fees</label><input id="fees" type="number" step="0.01" /></div>
+        <div><label>Other Expenses</label><input id="other_expenses" type="number" step="0.01" /></div>
+        <div><label>Other Payee</label><input id="other_payee" /></div>
+        <div id="paidArea"><input type="checkbox" id="paid" style="width:auto;"> <label for="paid" style="display:inline;">Paid</label></div>
+      </div>
+      <div class="buttons">
+        <button id="saveBtn" onclick="saveOrUpdate()">Save record</button>
+        <button class="secondary" onclick="exportCsv()">Export CSV</button>
+        <button class="secondary" onclick="document.getElementById('importInput').click()">Import File</button>
+        <button class="secondary" onclick="clearAll()">Clear All</button>
+        <button class="danger" id="cancelBtn" style="display:none" onclick="cancelEdit()">Cancel Edit</button>
+        <input type="file" id="importInput" onchange="importFile(event)" />
+      </div>
+    </div>
+    <div class="card" style="overflow-x:auto;"><table id="tbl"><thead><tr><th>ID</th><th>Date</th><th>Patient</th><th>Hospital</th><th>Type</th><th>Procedure</th><th>Fees</th><th>Other</th><th>Payee</th><th>Paid</th><th>Action</th></tr></thead><tbody></tbody></table></div>
+  </div>
+  <button id="forceSwBtn">Force SW register</button>
+
+<script>
+  let records = JSON.parse(localStorage.getItem('patient_records_v1') || '[]');
+  let editingId = null;
+
+  function render() {
+    const tbody = document.querySelector('#tbl tbody');
+    tbody.innerHTML = '';
+    records.forEach(r => {
+      const isPaid = (r.paid === "Yes" || r.paid === true);
+      const tr = document.createElement('tr');
+      if (isPaid) tr.classList.add('paid-row');
+      tr.innerHTML = `<td>${r.id}</td><td>${r.date || ''}</td><td><b>${r.patient_name || ''}</b></td><td>${r.hospital || ''}</td><td>${r.type || ''}</td><td>${r.procedure_name || ''}</td><td>${r.fees || 0}</td><td>${r.other_expenses || 0}</td><td>${r.other_payee || ''}</td><td style="color:${isPaid?'green':'red'}">${isPaid?'Yes':'No'}</td><td><button onclick="editItem(${r.id})">Edit</button><button class="danger" onclick="deleteItem(${r.id})">X</button>${!isPaid?`<button class="paid-btn" onclick="markPaid(${r.id})">Paid</button>`:''}</td>`;
+      tbody.appendChild(tr);
+    });
+    localStorage.setItem('patient_records_v1', JSON.stringify(records));
+  }
+
+  function saveOrUpdate() {
+    const name = document.getElementById('patient_name').value.trim();
+    if(!name) return alert("Name required");
+    let nextId = 1;
+    if (records.length > 0) { nextId = Math.max(...records.map(r => parseInt(r.id) || 0)) + 1; }
+    const record = { id: editingId || nextId, date: document.getElementById('date').value, patient_name: name, hospital: document.getElementById('hospital').value, type: document.getElementById('type').value, procedure_name: document.getElementById('procedure_name').value, fees: document.getElementById('fees').value || 0, other_expenses: document.getElementById('other_expenses').value || 0, other_payee: document.getElementById('other_payee').value, paid: editingId ? (document.getElementById('paid').checked ? "Yes" : "No") : "No" };
+    if (editingId) { const idx = records.findIndex(r => parseInt(r.id) === parseInt(editingId)); records[idx] = record; } else { records.push(record); }
+    cancelEdit(); render();
+  }
+
+  function editItem(id) {
+    editingId = id; const r = records.find(rec => parseInt(rec.id) === parseInt(id));
+    ['date','patient_name','hospital','type','procedure_name','fees','other_expenses','other_payee'].forEach(key => document.getElementById(key).value = r[key] || '');
+    document.getElementById('paid').checked = (r.paid === "Yes" || r.paid === true);
+    document.getElementById('paidArea').style.display = 'flex'; document.getElementById('cancelBtn').style.display = 'inline-block'; document.getElementById('saveBtn').innerText = "Update Record";
+  }
+
+  function markPaid(id) { const idx = records.findIndex(r => parseInt(r.id) === parseInt(id)); records[idx].paid = "Yes"; render(); }
+
+  function deleteItem(id) { if(confirm("Delete ID " + id + "?")) { records = records.filter(r => parseInt(r.id) !== parseInt(id)); render(); } }
+
+  function cancelEdit() { editingId = null; ['date','patient_name','hospital','procedure_name','fees','other_expenses','other_payee'].forEach(id => document.getElementById(id).value = ''); document.getElementById('paidArea').style.display = 'none'; document.getElementById('cancelBtn').style.display = 'none'; document.getElementById('saveBtn').innerText = "Save record"; }
+
+  function exportCsv() {
+    const headers = ["id","date","patient_name","hospital","type","procedure_name","fees","other_expenses","other_payee","paid"];
+    let csv = headers.join(",") + "\n";
+    records.forEach(r => { const row = headers.map(h => { let v = r[h] === undefined ? "" : r[h]; if(h === 'paid') v = (v === "Yes" || v === true) ? "Yes" : "No"; return `"${String(v).replace(/"/g, '""')}"`; }); csv += row.join(",") + "\n"; });
+    const blob = new Blob([csv], {type: 'text/csv;charset=utf-8;'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `surgeon_records.csv`; a.click();
+  }
+
+  function importFile(event) {
+    const file = event.target.files[0];
+    if (file.name.endsWith('.xlsx')) { alert("Error: Please save the file as 'CSV (Comma delimited)' in Excel before importing."); return; }
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const content = e.target.result;
+      if (content.includes('')) { alert("File error: This looks like a binary Excel file. Please export as CSV."); return; }
+      const lines = content.split('\n').filter(l => l.trim());
+      const imported = [];
+      for(let i=1; i<lines.length; i++) {
+        const cols = lines[i].split(',').map(v => v.trim().replace(/"/g,''));
+        if(cols.length < 5) continue;
+        imported.push({ id: parseInt(cols[0]) || (imported.length + 1), date: cols[1], patient_name: cols[2], hospital: cols[3], type: cols[4], procedure_name: cols[5], fees: cols[6], other_expenses: cols[7], other_payee: cols[8], paid: (cols[9] && cols[9].toLowerCase() === "yes") ? "Yes" : "No" });
+      }
+      records = imported; render(); alert(imported.length + " records loaded.");
+    };
+    reader.readAsText(file);
+  }
+
+  function clearAll() { if(confirm("Clear everything?")) { records=[]; render(); } }
+
+  let deferredInstallPrompt;
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault(); deferredInstallPrompt = e;
+    const b = document.createElement('button'); b.id = 'pwaInstallBtn'; b.textContent = 'Install App'; document.body.appendChild(b);
+    b.onclick = async () => { deferredInstallPrompt.prompt(); await deferredInstallPrompt.userChoice; b.remove(); };
+  });
+
+  document.getElementById('forceSwBtn').addEventListener('click', async () => {
+    if (!('serviceWorker' in navigator)) return alert('Not supported');
+    try { const reg = await navigator.serviceWorker.register('./sw.js'); alert('Registered: ' + reg.scope); } catch (err) { alert('Failed: ' + err.message); }
+  });
+
+  window.addEventListener('load', render);
+</script>
+</body>
+</html>
