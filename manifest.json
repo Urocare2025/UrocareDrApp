@@ -1,6 +1,6 @@
 {
-  "short_name": "Patients",
-  "name": "Patient Records — Easy Entry",
+  "short_name": "MedLedger",
+  "name": "MedLedger Records — Easy Entry",
   "description": "Simple offline app for entering and managing patient records with CSV export.",
   "start_url": ".",
   "display": "standalone",
